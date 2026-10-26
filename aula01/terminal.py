@@ -2,8 +2,6 @@
 
 def conferir(nome, idade_texto):
     novo_nome = nome.strip()
-    # TODO: converter idade para int, tratar ValueError e exigir idade > 0.
-    # TODO: retornar mensagem coerente; não gravar arquivos.
     try:
         idade = int(idade_texto)
         if idade <= 0:
