@@ -1,15 +1,26 @@
 """A02 — prática 1: campos em edição e registro confirmado."""
 
 def registrar(campos, registro):
-    # TODO: ler e normalizar nome e sobrenome; recusar texto vazio.
-    # TODO: converter idade e validar inteiro maior que zero.
-    # TODO: atualizar registro somente depois de todas as validações.
-    return "Complete a função registrar."
+    campos["nome"] = campos["nome"].strip()
+    if campos["nome"] == "":
+        return "Nome não pode ser vazio."
+    campos["sobrenome"] = campos["sobrenome"].strip()
+    if campos["sobrenome"] == "":
+        return "Sobrenome não pode ser vazio."
+    try:
+        campos["idade"] = int(campos["idade"])
+        if campos["idade"] <= 0:
+            return "idade deve ser maior que zero"
+    except ValueError as e:
+            return f"idade deve ser um número inteiro maior que zero: {e}"
+    else:
+        registro.add = campos
+        return campos["nome"] + " " + campos["sobrenome"] + " de idade " + campos["idade"]
 
 
 def exibir(registro):
     # TODO: tratar a ausência de registro e consultar o último válido.
-    return "Complete a função exibir."
+    return registro
 
 
 def limpar(campos):
@@ -19,7 +30,7 @@ def limpar(campos):
 
 
 if __name__ == "__main__":
-    campos = {"nome": "Lia", "sobrenome": "Costa", "idade": "18"}
+    campos = {"nome": "Lia", "sobrenome": "Costa", "idade": "-5"}
     registro = {}
     print(registrar(campos, registro))
     print(exibir(registro))
