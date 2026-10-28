@@ -7,7 +7,22 @@ def registrar(campos, registro):
     # TODO: ler e normalizar nome e sobrenome; recusar texto vazio.
     # TODO: converter idade e validar inteiro maior que zero.
     # TODO: atualizar registro somente depois de todas as validações.
-    return "Complete a função registrar."
+    campos["nome"] = campos["nome"].strip()
+    if campos["nome"] == "":
+        return "Nome não pode ser vazio."
+    campos["sobrenome"] = campos["sobrenome"].strip()
+    if campos["sobrenome"] == "":
+        return "Sobrenome não pode ser vazio."
+    try:
+        campos["idade"] = int(campos["idade"])
+        if campos["idade"] <= 0:
+            return "idade deve ser maior que zero"
+    except ValueError as e:
+            return f"idade deve ser um número inteiro maior que zero: {e}"
+    else:
+        nova_entrada = campos.copy()
+        registro.append(nova_entrada)
+        return f"{campos['nome']} {campos['sobrenome']} de idade {campos['idade']} adicionados ao registro"
 
 
 def exibir(registro):
@@ -26,7 +41,7 @@ def criar_janela():
     janela.title("Cadastro em memória — A02")
     janela.columnconfigure(1, weight=1)
     campos = {"nome": "", "sobrenome": "", "idade": ""}
-    registro = {}
+    registro = []
 
     ttk.Label(janela, text="Nome fictício:").grid(row=0, column=0, padx=12, pady=6, sticky="w")
     entrada_nome = ttk.Entry(janela)
@@ -41,15 +56,33 @@ def criar_janela():
     def ao_registrar():
         # TODO: copiar os textos atuais para campos e chamar registrar.
         # TODO: atualizar a mensagem e a consulta ao registro confirmado.
-        aviso.configure(text="Complete o callback Registrar.")
+        campos["nome"] = entrada_nome.get()
+        campos["sobrenome"] = entrada_sobrenome.get()
+        campos["idade"] = entrada_idade.get()
+        resultado = registrar(campos,registro)
+        aviso.configure(text=resultado)
+
+        if "adicionados ao registro" in resultado:
+            entrada_nome.delete(0, tk.END)
+            entrada_sobrenome.delete(0, tk.END)
+            entrada_idade.delete(0, tk.END)
 
     def ao_exibir():
         # TODO: consultar apenas registro; não ler os campos em edição.
-        aviso.configure(text="Complete o callback Exibir.")
+        if len(registro) == 0:
+            aviso.configure(text="Registro vazio")
+        text = "Registros: "
+        for reg in registro:
+            text += f"Registro: {reg}"
+        # Teste de como recuperar os dados no formulario caso necessário    
+        # entrada_nome.insert(0, campos["nome"])
+        aviso.configure(text=text)
 
     def ao_limpar():
         # TODO: limpar campos e Entry; manter registro e consulta intactos.
-        aviso.configure(text="Complete o callback Limpar campos.")
+        
+        limpar(campos)
+        aviso.configure(text="Limpando os campos de entrada xablau")
 
     ttk.Button(janela, text="Registrar", command=ao_registrar).grid(row=3, column=0, padx=12, pady=8)
     ttk.Button(janela, text="Exibir", command=ao_exibir).grid(row=3, column=1, padx=12, pady=8)
