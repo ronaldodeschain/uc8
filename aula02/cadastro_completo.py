@@ -33,6 +33,7 @@ def exibir(registro):
 def limpar(campos):
     # TODO: esvaziar os três textos editáveis.
     # O registro confirmado é separado e não é recebido por esta função.
+    
     pass
 
 
@@ -80,8 +81,9 @@ def criar_janela():
 
     def ao_limpar():
         # TODO: limpar campos e Entry; manter registro e consulta intactos.
-        
-        limpar(campos)
+        entrada_nome.delete(0, tk.END)
+        entrada_sobrenome.delete(0, tk.END)
+        entrada_idade.delete(0, tk.END)
         aviso.configure(text="Limpando os campos de entrada xablau")
 
     ttk.Button(janela, text="Registrar", command=ao_registrar).grid(row=3, column=0, padx=12, pady=8)
