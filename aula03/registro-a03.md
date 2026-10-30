@@ -58,20 +58,40 @@ Colega que testou (código combinado): Ao inserir o valor de 6.9 está converten
 
 ## Fechamento sem consulta
 Por que a cotação precisa ser maior que zero, mas o valor em reais pode ser zero?
-Como evitar mostrar uma entrada atual com um resultado anterior?
+
+* Nenhum deles deveria ser zero, mas nesse cenário causaria ZeroDivisionError.
+
+Como evitar mostrar uma entrada atual com um resultado anterior? 
+
+* Limpando os campos apos a inserção.
+
 Formatar com duas casas muda o número guardado no registro?
+
+* Se a entrada no registro for do dado formatado sim.
+
+
 Minha dificuldade, correção e próximo passo:
+
+* Lembrar melhor o funcionamento do tkinter
 
 Entregas: calculos_moedas.py, conversor.py e este registro preenchido.
 
 ## Teoria e transferência
+
 Consigo explicar por que a operação usa divisão.
-Minha explicação:
+
+Minha explicação: Porque é a formula da conversão de moedas.
+
 Consigo distinguir normalização, conversão e formatação.
-Minha explicação:
+
+Minha explicação: Normalizar padroniza o dado, conversão faz a lógica de conversão do valor e a formatação a apresentação do dado armazenado
+
 Consigo indicar quais dados devem ser confirmados juntos.
-Minha explicação:
-Ligação entre o ensaio e meus arquivos da atividade:
+
+Minha explicação: Todos os campos devem ser confirmados antes de salvar para não ter erros nos dados
+
+Ligação entre o ensaio e meus arquivos da atividade: Direta, os exercícios são baseados no material de aula
+
 Minha previsão antes da alteração guiada e o resultado observado:
 
 ## Continuação em casa
@@ -88,5 +108,8 @@ Mensagem após erro e possibilidade de corrigir:
 Redimensionamento e comportamento que observei:
 
 ## Pendências
-O que não executei e por quê, incluindo falta de ambiente:
-Caso para nova tentativa em sala:
+O que não executei e por quê, incluindo falta de ambiente: 
+
+Tudo testado e executado conforme mencionado nos testes acima. 
+
+Caso para nova tentativa em sala: Tudo testado, tudo ok.
