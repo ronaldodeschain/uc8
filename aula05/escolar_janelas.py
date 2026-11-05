@@ -87,6 +87,9 @@ def abrir_consulta(principal, registro):
     ttk.Label(consulta, text=texto, wraplength=380, justify="left").pack(padx=20, pady=16)
     ttk.Button(consulta, text="Fechar", command=consulta.destroy).pack(pady=(0, 12))
     # TODO: botão, X e Escape devem fechar somente a consulta.
+    consulta.lift()
+    consulta.focus_force()
+    consulta.focus_set()
     consulta.bind("<Escape>", lambda e: consulta.destroy())
     consulta.protocol("WM_DELETE_WINDOW", consulta.destroy)
     consulta.transient(principal)

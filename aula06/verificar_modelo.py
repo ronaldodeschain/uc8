@@ -19,7 +19,6 @@ def verificar_independencia():
     # TODO: usar assert nos resultados esperados; só então retornar True.
     return True
 
-
 def verificar_validacao():
     # TODO: válido seguido de erro; conferir preservação de todos os atributos.
     a = Aluno()
@@ -44,7 +43,6 @@ def verificar_validacao():
     assert c.notas is not notas_originais
     # TODO: retornar True somente depois das verificações implementadas.
     return True
-
 
 if __name__ == "__main__":
     independencia = verificar_independencia()

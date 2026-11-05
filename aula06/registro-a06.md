@@ -11,6 +11,7 @@ O que aconteceria se dois nomes apontassem para o mesmo objeto?
 ## Arquitetura antes do código
 Pasta com aluno.py, verificar_modelo.py e main.py:
 Qual arquivo contém regras? Qual cria widgets? Quem importa quem?
+
 O que __init__ cria em cada nova instância?
 Por que duas chamadas Aluno() diferem de rui = lia?
 O que self identifica em uma chamada de método?
