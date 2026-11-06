@@ -4,6 +4,8 @@ def quantidade(texto):
     valor = int(str(texto).strip())
     if valor <= 0:
         raise ValueError("Quantidade deve ser maior que zero.")
+    if valor > 999:
+        raise ValueError("Quantidade máxima é 999.")
     return valor
 
 def formatar(centavos):
@@ -42,7 +44,7 @@ class Pedido:
     def __init__(self):
         """TODO A07: implemente __init__ conforme o contrato e reutilize 
         seu código anterior."""
-        self.itens = []
+        self.itens = {}
         self.aberto = True
 
     def exigir_aberto(self):
@@ -55,21 +57,38 @@ class Pedido:
         """TODO A07: implemente adicionar conforme o contrato e reutilize 
         seu código anterior."""
         self.exigir_aberto()
-        for item in self.itens:
-            if item.produto.codigo == produto.codigo:
-                raise ValueError(f"Produto '{produto.codigo}' esta no pedido.")
-        self.itens.append(Item(produto, texto_quantidade))
+        qtd = quantidade(texto_quantidade)
+        if produto.codigo in self.itens:
+            novo_total = self.itens[produto.codigo].quantidade + qtd
+            if novo_total > 999:
+                raise ValueError("Quantidade máxima é 999.")
+            self.itens[produto.codigo].quantidade = novo_total
+        else:
+            self.itens[produto.codigo] = Item(produto, texto_quantidade)
+
+    def subtrair(self, produto, texto_quantidade):
+        self.exigir_aberto()
+        qtd = quantidade(texto_quantidade)
+        if produto.codigo not in self.itens:
+            raise ValueError(f"Produto '{produto.codigo}' não está no pedido.")
+        novo_total = self.itens[produto.codigo].quantidade - qtd
+        if novo_total < 0:
+            raise ValueError("Quantidade não pode ser menor que zero.")
+        if novo_total == 0:
+            del self.itens[produto.codigo]
+        else:
+            self.itens[produto.codigo].quantidade = novo_total
 
     def total_centavos(self):
         """TODO A07: implemente total_centavos conforme o contrato e reutilize 
         seu código anterior."""
-        return sum(item.subtotal() for item in self.itens)
+        return sum(item.subtotal() for item in self.itens.values())
 
     def linhas(self):
         """TODO A07: implemente linhas conforme o contrato e reutilize 
         seu código anterior."""
         resultado = []
-        for item in self.itens:
+        for item in self.itens.values():
             resultado.append(
                 f"{item.produto.codigo} {item.produto.nome} "
                 f"x{item.quantidade} = {formatar(item.subtotal())}"

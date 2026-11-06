@@ -1,3 +1,6 @@
+from decimal import Decimal
+from pagamento import calcular_pagamento
+
 def quantidade(texto):
     valor = int(str(texto).strip())
     if valor <= 0:
@@ -163,7 +166,9 @@ class Pedido:
             raise ValueError(
                 "Pedido alterado desde a ultima previa. Solicite uma nova previa."
             )
-        comprovante = Comprovante(self.linhas(), self.total_centavos(), forma)
+        subtotal_texto = str(Decimal(self.total_centavos())/100)
+        total_pag, desconto = calcular_pagamento(subtotal_texto, forma)
+        comprovante = Comprovante(self.linhas(), total_pag, forma)
         self.aberto = False
         return comprovante
 

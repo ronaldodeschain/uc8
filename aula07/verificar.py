@@ -1,7 +1,6 @@
 # Complete os casos do registro; não marque sucesso sem verificá-los.
 from modelos import Produto, Pedido, quantidade, formatar
 
-
 def verificar_produto():
     # produto valido
     p = Produto("F01", "Fruta", 150)
@@ -37,7 +36,6 @@ def verificar_produto():
 
     return True
 
-
 def verificar_item():
     fruta = Produto("F01", "Fruta", 150)
 
@@ -63,7 +61,6 @@ def verificar_item():
 
     return True
 
-
 def verificar_pedido():
     fruta = Produto("F01", "Fruta", 150)
     leite = Produto("L01", "Leite", 300)
@@ -81,14 +78,11 @@ def verificar_pedido():
     assert pedido.total_centavos() == 1200
     assert formatar(1200) == "R$ 12,00"
 
-    # repeticao por codigo preserva pedido
-    itens_antes = len(pedido.itens)
-    try:
-        pedido.adicionar(fruta, "1")
-        assert False, "deveria ter levantado ValueError"
-    except ValueError as e:
-        assert "esta no pedido" in str(e)
-    assert len(pedido.itens) == itens_antes
+    # repeticao por codigo acumula quantidade
+    qtd_antes = pedido.itens["F01"].quantidade
+    pedido.adicionar(fruta, "1")
+    assert pedido.itens["F01"].quantidade == qtd_antes + 1
+    assert len(pedido.itens) == 2
 
     # quantidade invalida preserva pedido
     outro = Produto("A01", "Outro", 200)
@@ -97,14 +91,14 @@ def verificar_pedido():
         assert False, "deveria ter levantado ValueError"
     except ValueError:
         pass
-    assert len(pedido.itens) == itens_antes
+    assert len(pedido.itens) == 2
 
     try:
         pedido.adicionar(outro, "abc")
         assert False, "deveria ter levantado ValueError"
     except ValueError:
         pass
-    assert len(pedido.itens) == itens_antes
+    assert len(pedido.itens) == 2
 
     # pedido fechado recusa adicionar
     pedido.aberto = False
@@ -165,8 +159,8 @@ if __name__ == "__main__":
         ("Geral", verificar),
     ]
     todos = True
-    for nome, fn in casos:
-        resultado = fn()
+    for nome, teste in casos:
+        resultado = teste()
         status = "OK" if resultado else "pendente"
         print(f"[{status}] {nome}")
         todos = todos and resultado

@@ -54,9 +54,9 @@ def criar_janela():
     acoes = ttk.Frame(base)
     acoes.grid(row=2, column=0, sticky="ew", pady=4)
     acoes.columnconfigure(0, weight=1)
+    acoes.columnconfigure(1, weight=1)
 
     def ao_adicionar():
-        # ler selecao e quantidade; delegar ao modelo
         indice = combo.current()
         produto = CATALOGO[indice]
         texto_qtd = entrada_qtd.get()
@@ -71,8 +71,25 @@ def criar_janela():
             aviso.configure(text=f"Erro: {e}")
         entrada_qtd.focus_set()
 
+    def ao_subtrair():
+        indice = combo.current()
+        produto = CATALOGO[indice]
+        texto_qtd = entrada_qtd.get()
+        try:
+            pedido.subtrair(produto, texto_qtd)
+            aviso.configure(text=f"Subtraído: {produto.nome} x{texto_qtd}")
+            atualizar_listagem(listbox, pedido)
+            entrada_qtd.delete(0, tk.END)
+        except ValueError as e:
+            aviso.configure(text=f"Recusado: {e}")
+        except RuntimeError as e:
+            aviso.configure(text=f"Erro: {e}")
+        entrada_qtd.focus_set()
+
     ttk.Button(acoes, text="Adicionar ao pedido", command=ao_adicionar).grid(
         row=0, column=0, pady=6)
+    ttk.Button(acoes, text="Subtrair do pedido", command=ao_subtrair).grid(
+        row=0, column=1, pady=6)
 
     # --- listagem do pedido ---
     grupo_ped = ttk.LabelFrame(base, text="Pedido", padding=6)

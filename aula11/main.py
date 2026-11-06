@@ -144,7 +144,9 @@ def mostrar_comprovante(janela, comprovante, aviso, tree, lbl_total, combo_produ
     ttk.Separator(frame, orient="horizontal").grid(
         row=sep_row, column=0, sticky="ew", pady=6)
     ttk.Label(frame, text=f"Forma: {comprovante.forma}").grid(
-        row=sep_row + 1, column=0, sticky="w", pady=(0, 8))
+        row=sep_row + 1, column=0, sticky="w")
+    ttk.Label(frame, text=f"Total com desconto: {formatar(comprovante.total_centavos)}").grid(
+        row=sep_row + 2, column=0, sticky="w", pady=(0, 8))
 
     aviso.configure(text="Pedido confirmado. Clique em Novo pedido para comecar.")
 
@@ -153,7 +155,7 @@ def mostrar_comprovante(janela, comprovante, aviso, tree, lbl_total, combo_produ
         combo_produto.focus_set()
 
     ttk.Button(frame, text="Fechar", command=ao_fechar).grid(
-        row=sep_row + 2, column=0, pady=4)
+        row=sep_row + 3, column=0, pady=4)
 
     top.protocol("WM_DELETE_WINDOW", ao_fechar)
     top.bind("<Escape>", lambda _: ao_fechar())
