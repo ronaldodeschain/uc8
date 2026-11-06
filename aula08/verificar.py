@@ -55,14 +55,11 @@ def verificar_modelos_preservado():
     assert pedido.total_centavos() == 1200
     assert formatar(1200) == "R$ 12,00"
 
-    # repeticao por codigo preserva pedido
-    itens_antes = len(pedido.itens)
-    try:
-        pedido.adicionar(fruta, "1")
-        assert False, "deveria ter levantado ValueError"
-    except ValueError:
-        pass
-    assert len(pedido.itens) == itens_antes
+    # repeticao por codigo incrementa quantidade — nao duplica item
+    pedido.adicionar(fruta, "1")
+    assert len(pedido.itens) == 2
+    assert pedido.itens[0].quantidade == 3
+    assert pedido.total_centavos() == 3 * 150 + 3 * 300
 
     return True
 

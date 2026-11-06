@@ -12,47 +12,47 @@ Desenho dos módulos, dependências e duração dos dados:
 Para cada caso, registre previsão, observado, correção e nova execução.
 
 T01 — R$100,00 → 87,00 dinheiro/PIX; 92,00 débito; 100,00 crédito1x.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: calculos sendo efetivados por meio de pagamento
+Observado: conforme previsto
+Correção/reteste ou pendência: não há pagamento segmentado, apenas exibe o calculo sem tratar o restante
 
 T02 — R$0,50 no PIX → R$0,44 com HALF_UP.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: calculo funcionado como previsto
+Observado: calculo feito sem erros
+Correção/reteste ou pendência: sem ajustes
 
 T03 — Duas chamadas iguais produzem resultados iguais e não alteram os itens.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: modifiquei para que ele aceite adição de produtos e subtração 
+Observado: se adicionar/subtrair altera a quantidade total do item
+Correção/reteste ou pendência: Sem mais ajustes
 
 T04 — Trocar PIX/crédito/PIX recalcula do subtotal original.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, troca o calculo ao calcular a previa
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T05 — Forma vazia ou desconhecida: erro orientado.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: forma não fica vazia, sempre mantem uma seleção, o valor vazio aponta erro de valor
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajustes
 
-T06 — Valor com letras, NaN/inf, negativo, milhares ou mais de duas casas: recusar.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+T06 — Valor com letras, NaN/inf, negativo, milhares ou mais de duas casas: recusar. 
+Previsão: tratamento de erro por entrada inválida funciona
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T07 — Subtotal = desconto +total após arredondamento.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Aplica o valor corretamente ao clicar em calcular previa
+Observado: conforme previsto
+Correção/reteste ou pendência: foi modificada a janela pra fazer mais sentido, agora há apenas o botão para selecionar o valor e calcular a previa
 
 T08 — Validações de quantidade e catálogo da A07 preservadas.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: sim, código reutilizado
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajustes
 
 ## Explicação individual
-Uma decisão que consigo justificar:
+Uma decisão que consigo justificar: adicionei o botão de subtrair para ter maior controle da quantidade, sem ter esse controle uma entrada errada faria que o programa tivesse que ser reiniciado para fazer um novo input
 Uma dificuldade, apoio e próxima tentativa:
 
 ## Arquivos

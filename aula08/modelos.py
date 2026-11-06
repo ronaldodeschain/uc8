@@ -56,10 +56,25 @@ class Pedido:
     def adicionar(self, produto, texto_quantidade):
         """TODO A08: implemente adicionar conforme o contrato e reutilize seu código anterior."""
         self.exigir_aberto()
+        qtd = quantidade(texto_quantidade)
         for item in self.itens:
             if item.produto.codigo == produto.codigo:
-                raise ValueError(f"Produto '{produto.codigo}' esta no pedido.")
+                item.quantidade += qtd
+                return
         self.itens.append(Item(produto, texto_quantidade))
+
+    def subtrair(self, produto, texto_quantidade):
+        """Reduz a quantidade de um item; remove-o se chegar a zero."""
+        self.exigir_aberto()
+        qtd = quantidade(texto_quantidade)
+        for item in self.itens:
+            if item.produto.codigo == produto.codigo:
+                if qtd >= item.quantidade:
+                    self.itens.remove(item)
+                else:
+                    item.quantidade -= qtd
+                return
+        raise ValueError(f"Produto '{produto.codigo}' nao esta no pedido.")
 
     def total_centavos(self):
         """TODO A08: implemente total_centavos conforme o contrato e reutilize seu código anterior."""

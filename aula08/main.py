@@ -66,8 +66,23 @@ def criar_janela():
             aviso.configure(text=f"Recusado: {e}")
         entrada_qtd.focus_set()
 
-    ttk.Button(acoes_pedido, text="Adicionar ao pedido", command=ao_adicionar).grid(
-        row=0, column=0, pady=6)
+    def ao_subtrair():
+        # campo/selecao -> callback -> pedido.subtrair
+        produto = CATALOGO[combo_produto.current()]
+        try:
+            pedido.subtrair(produto, entrada_qtd.get())
+            aviso.configure(text=f"Subtraido: {produto.nome} x{entrada_qtd.get()}")
+            atualizar_listagem(listbox, pedido)
+            entrada_qtd.delete(0, tk.END)
+        except (ValueError, RuntimeError) as e:
+            aviso.configure(text=f"Recusado: {e}")
+        entrada_qtd.focus_set()
+
+    acoes_pedido.columnconfigure(1, weight=1)
+    ttk.Button(acoes_pedido, text="Adicionar", command=ao_adicionar).grid(
+        row=0, column=0, padx=4, pady=6)
+    ttk.Button(acoes_pedido, text="Subtrair", command=ao_subtrair).grid(
+        row=0, column=1, padx=4, pady=6)
 
     # --- listagem do pedido ---
     grupo_ped = ttk.LabelFrame(base, text="Pedido", padding=6)
@@ -82,18 +97,14 @@ def criar_janela():
     grupo_pag.grid(row=4, column=0, sticky="ew", pady=4)
     grupo_pag.columnconfigure(1, weight=1)
 
-    ttk.Label(grupo_pag, text="Subtotal (R$):").grid(row=0, column=0, padx=6, pady=4, sticky="w")
-    entrada_subtotal = ttk.Entry(grupo_pag)
-    entrada_subtotal.grid(row=0, column=1, padx=6, pady=4, sticky="ew")
-
-    ttk.Label(grupo_pag, text="Forma:").grid(row=1, column=0, padx=6, pady=4, sticky="w")
+    ttk.Label(grupo_pag, text="Forma:").grid(row=0, column=0, padx=6, pady=4, sticky="w")
     formas = list(FATORES.keys())
     combo_forma = ttk.Combobox(grupo_pag, values=formas, state="readonly")
-    combo_forma.grid(row=1, column=1, padx=6, pady=4, sticky="ew")
+    combo_forma.grid(row=0, column=1, padx=6, pady=4, sticky="ew")
     combo_forma.current(0)
 
     resultado_pag = ttk.Label(grupo_pag, text="", wraplength=380)
-    resultado_pag.grid(row=2, column=0, columnspan=2, padx=6, pady=4, sticky="w")
+    resultado_pag.grid(row=1, column=0, columnspan=2, padx=6, pady=4, sticky="w")
 
     # --- botao calcular previa ---
     acoes_pag = ttk.Frame(base)
@@ -101,9 +112,14 @@ def criar_janela():
     acoes_pag.columnconfigure(0, weight=1)
 
     def ao_calcular_previa():
-        # campo/selecao -> callback -> calcular_pagamento; sem alterar pedido
-        subtotal_texto = entrada_subtotal.get()
+        # usa total atual do pedido; nao altera o pedido
+        if not pedido.itens:
+            aviso.configure(text="Pedido vazio. Adicione itens antes de calcular a previa.")
+            return
+        total_pedido = pedido.total_centavos()
         forma = combo_forma.get()
+        from decimal import Decimal
+        subtotal_texto = str(Decimal(total_pedido) / 100)
         try:
             total, desconto = calcular_pagamento(subtotal_texto, forma)
             resultado_pag.configure(
@@ -113,7 +129,6 @@ def criar_janela():
         except ValueError as e:
             resultado_pag.configure(text="")
             aviso.configure(text=f"Recusado: {e}")
-        entrada_subtotal.focus_set()
 
     ttk.Button(acoes_pag, text="Calcular previa", command=ao_calcular_previa).grid(
         row=0, column=0, pady=6)
