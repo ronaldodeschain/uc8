@@ -19,14 +19,23 @@ def inserir_marca(container, caminho=None):
             return ttk.Label(container, text="Sistema escolar fictício — A06")
 
 
-def abrir_consulta(principal, aluno):
-    # tratar ausência sem abrir janela vazia
-    if aluno.nome is None:
+def abrir_consulta(principal, registro):
+    if not registro:
         return None
-    # retrato do confirmado no instante da abertura
-    texto = aluno.exibir()
+    grupos = {}
+    for aluno in registro:
+        grupos.setdefault(aluno.turma, []).append(aluno)
+    linhas = []
+    for turma, alunos in sorted(grupos.items()):
+        linhas.append(f"Turma: {turma}")
+        for a in alunos:
+            notas = " | ".join(str(n) for n in a.notas)
+            linhas.append(f"  {a.nome}  Notas: {notas}  Média: {a.media:.1f}")
+        media_turma = sum(a.media for a in alunos) / len(alunos)
+        linhas.append(f"  Média da turma: {media_turma:.1f}")
+    texto = "\n".join(linhas)
     consulta = tk.Toplevel(principal)
-    consulta.title("Consulta — registro confirmado")
+    consulta.title("Consulta — registros confirmados")
     consulta.resizable(False, False)
     ttk.Label(consulta, text=texto, wraplength=380, justify="left").pack(padx=20, pady=16)
     ttk.Button(consulta, text="Fechar", command=consulta.destroy).pack(pady=(0, 12))
@@ -48,8 +57,7 @@ def criar_janela():
     base.columnconfigure(0, weight=1)
     base.columnconfigure(1, weight=1)
 
-    # instância única de Aluno por principal — regras ficam no modelo
-    aluno = Aluno()
+    registro = []
 
     inserir_marca(base).grid(row=0, column=0, columnspan=2, pady=6, sticky="w")
 
@@ -83,18 +91,21 @@ def criar_janela():
         entradas_notas.append(entrada)
 
     def ao_calcular():
-        # callbacks pequenos: lê Entry e delega ao modelo
-        nome = entrada_nome.get()
-        turma = entrada_turma.get()
-        notas = [e.get() for e in entradas_notas]
-        aviso.configure(text=aluno.confirmar(nome, turma, notas))
+        aluno = Aluno()
+        mensagem = aluno.confirmar(
+            entrada_nome.get(),
+            entrada_turma.get(),
+            [e.get() for e in entradas_notas],
+        )
+        if mensagem.startswith("Confirmado"):
+            registro.append(aluno)
+        aviso.configure(text=mensagem)
 
     def ao_consultar():
-        # orienta sem abrir janela se ainda não há confirmado
-        if aluno.nome is None:
+        if not registro:
             aviso.configure(text="Confirme um registro antes de consultar.")
             return
-        abrir_consulta(janela, aluno)
+        abrir_consulta(janela, registro)
 
     def ao_limpar():
         # limpa somente os widgets; modelo preserva o último confirmado
