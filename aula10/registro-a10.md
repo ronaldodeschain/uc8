@@ -12,27 +12,27 @@ Desenho dos módulos, dependências e duração dos dados:
 Para cada caso, registre previsão, observado, correção e nova execução.
 
 T01 — Mussarela média 35,00 +dois refrigerantes 6,00: total 47,00.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: refrigerante 5,00. Total 45,00
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T02 — Pizza com tamanho desconhecido: recusar.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Se os atributos não forem preenchidos não aceita
+Observado: modelo trata a entrada de tamanho, não aceita se estiver fora do escopo
+Correção/reteste ou pendência: sem ajustes
 
 T03 — Bebida e pizza coexistem com IDs distintos.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, usam composição com Produto, cada um tem seus atributos distintos
+Observado: tudo conforme o previsto
+Correção/reteste ou pendência: sem ajustes
 
 T04 — Atualizar/remover preserva alvo por ID.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: O ID do produto não some se for removido, fica ligado ao produto
+Observado: atualizar não modifica o ID do produto e a remoção não altera o ID
+Correção/reteste ou pendência: sem ajustes
 
 T05 — Quantidades inválidas mantêm o pedido anterior.
-Previsão:
+Previsão: quantidade inválida é tratada e não permite 
 Observado:
 Correção/reteste ou pendência:
 
