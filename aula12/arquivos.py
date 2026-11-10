@@ -1,35 +1,26 @@
 """A12 — leitura e gravação segura do catálogo JSON."""
-from pathlib import Path
 import json
 import os
 import tempfile
+from pathlib import Path
 from modelos import Produto
+
 
 def carregar_catalogo(caminho):
     """Lê o catálogo em caminho.
 
-    Se o arquivo não existir, retorna uma lista vazia.
-    Se o arquivo estiver corrompido, levanta ValueError.
+    Retorna status, mensagem e produtos. Se o arquivo estiver ausente,
+    retorna status falso; se estiver inválido, levanta ValueError.
     """
-    try:
-        with open(caminho,"r",encoding="utf-8") as arquivo:
-            dados = json.load(arquivo)
-
-        catalogo = []
-        
-        for item in dados:
-            catalogo.append(Produto(
-                item["id"],
-                item["nome"],
-                item["preco_centavos"]))
-
-        return True, "Catalogo carregado",catalogo
-    
-    except FileNotFoundError:
+    dados = ler_catalogo(caminho)
+    if dados is None:
         return False, "Arquivo não encontrado", []
-    
-    except json.JSONDecodeError as e:
-        return False, f"Erro de sintaxe JSON: {e}", []
+    catalogo = [
+        Produto(item["id"], item["nome"], item["preco_centavos"])
+        for item in dados
+    ]
+    return True, "Catálogo carregado", catalogo
+
 
 def validar_catalogo(dados):
     """Recebe dados Python já decodificados e verifica a estrutura.
@@ -37,6 +28,7 @@ def validar_catalogo(dados):
     Levanta ValueError se:
     - dados não for uma lista
     - algum item não tiver id, nome e preco_centavos
+    - id não for texto ou inteiro
     - preco_centavos não for inteiro positivo
     - houver ids repetidos
     Retorna a lista validada.
@@ -45,14 +37,20 @@ def validar_catalogo(dados):
         raise ValueError("Catálogo deve ser uma lista.")
     ids_vistos = set()
     for i, item in enumerate(dados):
+        if not isinstance(item, dict):
+            raise ValueError(f"Item {i} deve ser um objeto.")
         for campo in ("id", "nome", "preco_centavos"):
             if campo not in item:
                 raise ValueError(f"Item {i} sem campo '{campo}'.")
-        if not isinstance(item["preco_centavos"], int) or item["preco_centavos"] <= 0:
+        if type(item["id"]) not in (str, int):
+            raise ValueError(f"Item {i}: id deve ser texto ou inteiro.")
+        if type(item["preco_centavos"]) is not int or item["preco_centavos"] <= 0:
             raise ValueError(f"Item {i}: preco_centavos deve ser inteiro positivo.")
-        if not str(item["nome"]).strip():
+        if not isinstance(item["nome"], str) or not item["nome"].strip():
             raise ValueError(f"Item {i}: nome não pode ser vazio.")
-        id_item = item["id"]
+        id_item = str(item["id"]).strip()
+        if not id_item:
+            raise ValueError(f"Item {i}: id não pode ser vazio.")
         if id_item in ids_vistos:
             raise ValueError(f"ID repetido: {id_item}.")
         ids_vistos.add(id_item)
@@ -69,10 +67,10 @@ def ler_catalogo(caminho):
     caminho = Path(caminho)
     if not caminho.exists():
         return None
-    texto = caminho.read_text(encoding="utf-8")
     try:
+        texto = caminho.read_text(encoding="utf-8")
         dados = json.loads(texto)
-    except json.JSONDecodeError as e:
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
         raise ValueError(f"JSON inválido em '{caminho}': {e}") from e
     return validar_catalogo(dados)
 

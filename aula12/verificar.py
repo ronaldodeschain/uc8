@@ -1,9 +1,10 @@
-"""A12 — verificação de catálogo JSON e navegação sem perder o pedido."""
+"""A12 — verificações de catálogo JSON e navegação sem perder o pedido."""
 import json
 from pathlib import Path
 import tempfile
+
 from arquivos import ler_catalogo, salvar_catalogo, validar_catalogo
-from modelos import Produto, Pedido
+from modelos import Pedido, Produto
 
 
 CATALOGO_VALIDO = [
@@ -13,143 +14,135 @@ CATALOGO_VALIDO = [
 ]
 
 
+def _esperar_value_error(acao, trecho=None):
+    try:
+        acao()
+    except ValueError as erro:
+        if trecho is not None:
+            assert trecho in str(erro), str(erro)
+    else:
+        raise AssertionError(f"Era esperado ValueError contendo: {trecho}")
+
+
+def _estado_pedido(pedido):
+    return (
+        pedido.versao(),
+        [
+            (
+                item.produto.codigo,
+                item.produto.nome,
+                item.quantidade,
+                item.subtotal(),
+            )
+            for item in pedido.itens
+        ],
+        pedido.total_centavos(),
+        pedido.aberto,
+    )
+
+
 def verificar_catalogo():
     with tempfile.TemporaryDirectory() as pasta:
         caminho = Path(pasta) / "catalogo.json"
 
-        # arquivo ausente
-        assert ler_catalogo(caminho) is None
+        previsto_ausente = None
+        assert ler_catalogo(caminho) == previsto_ausente
+        print("[OK] Catálogo ausente")
 
-        # catálogo válido com acento
-        salvar_catalogo(caminho, CATALOGO_VALIDO)
-        lido = ler_catalogo(caminho)
-        assert lido is not None
-        assert len(lido) == 3
-        assert lido[1]["nome"] == "Feijão"
+        previsto_valido = [dict(produto) for produto in CATALOGO_VALIDO]
+        salvar_catalogo(caminho, previsto_valido)
+        bytes_validos = caminho.read_bytes()
+        assert ler_catalogo(caminho) == previsto_valido
+        assert caminho.read_bytes() == bytes_validos
+        print("[OK] Catálogo válido, round-trip e leitura sem alteração")
 
-        # bytes preservados: ler não altera o arquivo
-        bytes_antes = caminho.read_bytes()
-        ler_catalogo(caminho)
-        assert caminho.read_bytes() == bytes_antes
+        texto_quebrado = '[{"id": 1, "nome": "Arroz" "preco_centavos": 100}]'
+        caminho.write_text(texto_quebrado, encoding="utf-8")
+        bytes_quebrados = caminho.read_bytes()
+        _esperar_value_error(lambda: ler_catalogo(caminho), "JSON inválido")
+        assert caminho.read_bytes() == bytes_quebrados
+        print("[OK] JSON quebrado rejeitado e preservado")
 
-        # JSON quebrado: levanta ValueError, arquivo não é alterado
+        estrutura_invalida = {"id": 1, "nome": "Arroz", "preco_centavos": 100}
         caminho.write_text(
-            "[{\"id\": 1, \"nome\": \"Arroz\" \"preco_centavos\": 100}]",
+            json.dumps(estrutura_invalida),
             encoding="utf-8",
         )
-        bytes_quebrado = caminho.read_bytes()
+        bytes_estrutura_invalida = caminho.read_bytes()
+        _esperar_value_error(lambda: ler_catalogo(caminho), "Catálogo deve ser uma lista")
+        assert caminho.read_bytes() == bytes_estrutura_invalida
+        print("[OK] JSON válido com estrutura fora das regras rejeitado e preservado")
+
+        salvar_catalogo(caminho, previsto_valido)
+        bytes_anteriores = caminho.read_bytes()
+        catalogo_repetido = [
+            {"id": 7, "nome": "Produto A", "preco_centavos": 100},
+            {"id": "7", "nome": "Produto B", "preco_centavos": 200},
+        ]
+        _esperar_value_error(
+            lambda: validar_catalogo(catalogo_repetido),
+            "ID repetido",
+        )
+        _esperar_value_error(
+            lambda: salvar_catalogo(caminho, catalogo_repetido),
+            "ID repetido",
+        )
+        assert caminho.read_bytes() == bytes_anteriores
+        print("[OK] ID repetido rejeitado antes de alterar o arquivo")
+
         try:
-            ler_catalogo(caminho)
-            assert False, "deveria ter levantado ValueError"
-        except ValueError:
-            pass
-        assert caminho.read_bytes() == bytes_quebrado
+            assert ler_catalogo(caminho) == [], "previsão deliberadamente falsa"
+        except AssertionError as erro:
+            assert "previsão deliberadamente falsa" in str(erro)
+        else:
+            raise AssertionError("A previsão falsa deveria falhar.")
 
-        # ID repetido: validar_catalogo levanta ValueError
-        try:
-            validar_catalogo([
-                {"id": 1, "nome": "A", "preco_centavos": 100},
-                {"id": 1, "nome": "B", "preco_centavos": 200},
-            ])
-            assert False, "deveria ter levantado ValueError"
-        except ValueError as e:
-            assert "repetido" in str(e)
-
-        # salvar com ID repetido: arquivo anterior preservado
-        salvar_catalogo(caminho, CATALOGO_VALIDO)
-        bytes_valido = caminho.read_bytes()
-        try:
-            salvar_catalogo(caminho, [
-                {"id": 5, "nome": "X", "preco_centavos": 100},
-                {"id": 5, "nome": "Y", "preco_centavos": 200},
-            ])
-            assert False, "deveria ter levantado ValueError"
-        except ValueError:
-            pass
-        assert caminho.read_bytes() == bytes_valido
-
-        # campo ausente
-        try:
-            validar_catalogo([{"id": 1, "nome": "Sem preco"}])
-            assert False, "deveria ter levantado ValueError"
-        except ValueError as e:
-            assert "preco_centavos" in str(e)
-
-        # preco_centavos zero ou negativo
-        try:
-            validar_catalogo([{"id": 1, "nome": "X", "preco_centavos": 0}])
-            assert False, "deveria ter levantado ValueError"
-        except ValueError:
-            pass
-
-        # round-trip preserva os dados
-        salvar_catalogo(caminho, CATALOGO_VALIDO)
-        assert ler_catalogo(caminho) == CATALOGO_VALIDO
-
-        # previsão deliberadamente errada — deve falhar com AssertionError
-        try:
-            assert ler_catalogo(caminho) == [], "previsao falsa intencional"
-            assert False, "deveria ter falhado na linha anterior"
-        except AssertionError as e:
-            assert "previsao falsa intencional" in str(e)
-
-        # previsão correta restaurada — dados reais não foram alterados
-        assert ler_catalogo(caminho) == CATALOGO_VALIDO
+        assert ler_catalogo(caminho) == previsto_valido
+        assert caminho.read_bytes() == bytes_anteriores
+        print("[OK] Previsão falsa falhou; previsão correta passou sem alterar os dados")
 
     return True
 
 
 def verificar_navegacao():
-    """Troca de catálogo e cancelamento não devem alterar o pedido em andamento."""
+    """Trocar de catálogo ou cancelar não altera o pedido em andamento."""
     arroz = Produto("1", "Arroz", 2590)
     feijao = Produto("2", "Feijão", 890)
 
     pedido = Pedido()
     pedido.adicionar(arroz, "2")
-    versao_antes = pedido.versao()
-    itens_antes = len(pedido.itens)
-    total_antes = pedido.total_centavos()
+    estado_inicial = _estado_pedido(pedido)
 
-    # simula troca de aba: carrega outro catálogo sem tocar no pedido
+    catalogo_previsto = [{"id": 10, "nome": "Suco", "preco_centavos": 600}]
     with tempfile.TemporaryDirectory() as pasta:
-        caminho = Path(pasta) / "catalogo2.json"
-        outro_catalogo = [{"id": 10, "nome": "Suco", "preco_centavos": 600}]
-        salvar_catalogo(caminho, outro_catalogo)
+        caminho = Path(pasta) / "outro_catalogo.json"
+        salvar_catalogo(caminho, catalogo_previsto)
         catalogo_carregado = ler_catalogo(caminho)
 
-    assert catalogo_carregado == outro_catalogo
-    # pedido não foi alterado pela troca de catálogo
-    assert pedido.versao() == versao_antes
-    assert len(pedido.itens) == itens_antes
-    assert pedido.total_centavos() == total_antes
+    assert catalogo_carregado == catalogo_previsto
+    assert _estado_pedido(pedido) == estado_inicial
+    print("[OK] Troca de catálogo preservou itens, quantidades, total e versão")
 
-    # simula cancelamento: tentativa inválida não altera o pedido
+    _esperar_value_error(lambda: pedido.adicionar(feijao, "abc"))
+    assert _estado_pedido(pedido) == estado_inicial
+
+    _esperar_value_error(
+        lambda: pedido.finalizar("PIX", pedido.versao() + 99),
+        "Pedido alterado",
+    )
+    assert _estado_pedido(pedido) == estado_inicial
+    print("[OK] Cancelamento e falha de confirmação preservaram o pedido")
+
     try:
-        pedido.adicionar(feijao, "abc")
-    except ValueError:
-        pass
-    assert pedido.versao() == versao_antes
-    assert len(pedido.itens) == itens_antes
-    assert pedido.total_centavos() == total_antes
+        assert pedido.total_centavos() == 9999, "previsão deliberadamente falsa"
+    except AssertionError as erro:
+        assert "previsão deliberadamente falsa" in str(erro)
+    else:
+        raise AssertionError("A previsão falsa do pedido deveria falhar.")
 
-    # simula cancelamento de finalização: versão errada não fecha o pedido
-    try:
-        pedido.finalizar("PIX", versao_antes + 99)
-    except ValueError:
-        pass
-    assert pedido.aberto is True
-    assert pedido.total_centavos() == total_antes
-
-    # previsão deliberadamente errada sobre o total
-    try:
-        assert pedido.total_centavos() == 9999, "previsao falsa intencional"
-        assert False, "deveria ter falhado na linha anterior"
-    except AssertionError as e:
-        assert "previsao falsa intencional" in str(e)
-
-    # previsão correta restaurada
-    assert pedido.total_centavos() == total_antes
-
+    assert pedido.total_centavos() == 5180
+    assert _estado_pedido(pedido) == estado_inicial
+    print("[OK] Previsão falsa do total falhou; valor correto passou sem alterar o pedido")
     return True
 
 
@@ -158,17 +151,12 @@ def verificar():
         ("Catálogo JSON", verificar_catalogo),
         ("Navegação sem perder pedido", verificar_navegacao),
     ]
-    todos = True
     for nome, caso in casos:
-        resultado = caso()
-        status = "OK" if resultado else "pendente"
-        print(f"[{status}] {nome}")
-        todos = todos and resultado
-    return todos
+        assert caso() is True
+        print(f"[OK] Caso completo: {nome}")
+    return True
 
 
 if __name__ == "__main__":
     if verificar():
-        print("Casos executados: previsões e resultados conferem.")
-    else:
-        print("Verificações ainda incompletas.")
+        print("Todos os casos executados passaram.")
