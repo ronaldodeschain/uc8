@@ -13,5 +13,10 @@
         "id": 3,
         "nome": "Macarrao",
         "preco_centavos": 650
+    },
+    {
+        "id": 4,
+        "nome": "Macarrazão",
+        "preco_centavos": 950
     }
 ]

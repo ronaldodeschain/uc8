@@ -12,44 +12,44 @@ Desenho dos módulos, dependências e duração dos dados:
 Para cada caso, registre previsão, observado, correção e nova execução.
 
 T01 — Ausente retorna coleção vazia sem criar arquivo silenciosamente.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Tem tratamento para coleção vazio
+Observado: funciona como previsto
+Correção/reteste ou pendência: sem ajuste
 
 T02 — UTF-8 conserva Picolé/limão.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: sim, tem encoding na abertura do json
+Observado: foi feito o tratamento
+Correção/reteste ou pendência: sem ajustes
 
 T03 — JSON malformado e conteúdo com encoding inválido não são sobrescritos.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: tem tratamento não aceita sobrescrita assim
+Observado: funciona conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T04 — Estrutura incorreta, IDs repetidos e preço inválido são rejeitados.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: sim, são rejeitados, tem tratamento em arquivos para evitar 
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T05 — Falha de escrita mantém o destino anterior e não anuncia sucesso.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: falha de escrita anuncia erro
+Observado: tem tratamento, segue conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T06 — Cancelar seletor não altera tela nem arquivo.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: cancelar seletor não influencia o temporario nem o arquivo salvo
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T07 — Navegar entre abas conserva pedido e estado.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, preserva por não ser alteração, apenas navegação
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T08 — Exercício JSON não modifica automaticamente o catálogo em memória.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: só vai alterar ao ser salva a alteração no json
+Observado: ao modificar o catalago.json na aba dentro do app a alteração é observada
+Correção/reteste ou pendência: sem ajustes
 
 ## Explicação individual
 Uma decisão que consigo justificar:
