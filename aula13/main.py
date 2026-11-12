@@ -3,7 +3,7 @@ import os
 import csv
 import json
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from decimal import Decimal
 from pathlib import Path
@@ -11,7 +11,10 @@ from arquivos import ler_catalogo, salvar_catalogo, validar_catalogo
 from modelos import Pedido, Produto, formatar
 from relatorios import registrar_venda_csv
 from pagamento import calcular_pagamento, FATORES
+from perfis import SessaoDemo
 
+
+CAMINHO_VENDAS = Path(__file__).resolve().parent.parent / "vendas.csv"
 
 
 def _label_catalogo(produto):
@@ -104,7 +107,7 @@ def abrir_previa(janela, pedido, forma, aviso, tree, lbl_total, combo_produto):
         try:
             comprovante = pedido.finalizar(forma, versao_previa)
             # grava a venda no csv
-            registrar_venda_csv(comprovante)
+            registrar_venda_csv(comprovante, CAMINHO_VENDAS)
 
             top.destroy()
             mostrar_comprovante(janela, comprovante, aviso, tree, lbl_total,
@@ -185,9 +188,84 @@ def criar_janela():
     aba_pedido = ttk.Frame(notebook, padding=12)
     aba_catalogo = ttk.Frame(notebook, padding=12)
     aba_csv = ttk.Frame(notebook,padding=12)
+    aba_perfis = ttk.Frame(notebook, padding=12)
     notebook.add(aba_pedido, text="Pedido")
     notebook.add(aba_catalogo, text="Catálogo JSON")
     notebook.add(aba_csv, text="Relatórios CSV")
+    notebook.add(aba_perfis, text="Perfis")
+
+    sessao = SessaoDemo()
+    aba_perfis.columnconfigure(1, weight=1)
+    ttk.Label(aba_perfis, text="Nome:").grid(
+        row=0, column=0, sticky="w", padx=(0, 8), pady=4
+    )
+    entrada_nome_perfil = ttk.Entry(aba_perfis)
+    entrada_nome_perfil.grid(row=0, column=1, sticky="ew", pady=4)
+
+    ttk.Label(aba_perfis, text="Perfil:").grid(
+        row=1, column=0, sticky="w", padx=(0, 8), pady=4
+    )
+    combo_perfil = ttk.Combobox(
+        aba_perfis,
+        values=("Caixa", "Administração"),
+        state="readonly",
+    )
+    combo_perfil.grid(row=1, column=1, sticky="ew", pady=4)
+    combo_perfil.current(0)
+
+    lbl_sessao = ttk.Label(aba_perfis, text="Nenhuma sessão ativa.")
+    lbl_sessao.grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 4))
+    lbl_permissoes = ttk.Label(aba_perfis, text="Permissões: não verificadas.")
+    lbl_permissoes.grid(row=4, column=0, columnspan=2, sticky="w", pady=4)
+
+    lbl_usuario_atual = ttk.Label(aba_pedido, text="Nenhuma sessão ativa.")
+    lbl_usuario_atual.grid(row=0, column=0, sticky="e", pady=(0, 8))
+
+    def entrar_perfil():
+        perfil = (
+            "Administracao"
+            if combo_perfil.get() == "Administração"
+            else combo_perfil.get()
+        )
+        try:
+            sessao.entrar(entrada_nome_perfil.get(), perfil)
+        except ValueError as erro:
+            messagebox.showerror("Dados inválidos", str(erro))
+            return
+
+        perfil_exibicao = (
+            "Administração" if sessao.perfil == "Administracao" else sessao.perfil
+        )
+        lbl_sessao.configure(
+            text=f"Logado: {sessao.nome} ({perfil_exibicao})"
+        )
+        lbl_usuario_atual.configure(
+            text=f"{sessao.nome} ({perfil_exibicao})"
+        )
+        if sessao.pode_operar_vendas():
+            permissoes = (
+                "Pode operar vendas. Não pode acessar configurações."
+            )
+        else:
+            permissoes = "Pode acessar configurações."
+        lbl_permissoes.configure(text=f"Permissões: {permissoes}")
+
+    def sair_perfil():
+        sessao.sair()
+        entrada_nome_perfil.delete(0, tk.END)
+        combo_perfil.set("")
+        lbl_sessao.configure(text="Nenhuma sessão ativa.")
+        lbl_usuario_atual.configure(text="Nenhuma sessão ativa.")
+        lbl_permissoes.configure(text="Permissões: não verificadas.")
+
+    acoes_perfil = ttk.Frame(aba_perfis)
+    acoes_perfil.grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+    ttk.Button(acoes_perfil, text="Entrar", command=entrar_perfil).grid(
+        row=0, column=0, padx=(0, 6)
+    )
+    ttk.Button(acoes_perfil, text="Sair", command=sair_perfil).grid(
+        row=0, column=1
+    )
 
     # --- aba relatórios csv ---
     aba_csv.columnconfigure(0,weight=1)
@@ -212,6 +290,7 @@ def criar_janela():
     tree_csv.heading("total_reais", text="Valor (R$)")
 
     tree_csv.column("data_hora",width=180,anchor="center")
+    tree_csv.grid(row=1, column=0, sticky="nsew")
 
     menu = tk.Menu(janela)
     menu_navegacao = tk.Menu(menu, tearoff=False)
@@ -225,7 +304,11 @@ def criar_janela():
     )
     menu_navegacao.add_command(
         label="Abrir vendas.csv",
-        command=lambda: notebook.select(abrir_csv),
+        command=lambda: notebook.select(aba_csv),
+    )
+    menu_navegacao.add_command(
+        label="Perfis\tCtrl+4",
+        command=lambda: notebook.select(aba_perfis),
     )
     menu.add_cascade(label="Navegar", menu=menu_navegacao)
     janela.configure(menu=menu)
@@ -240,6 +323,10 @@ def criar_janela():
     janela.bind_all(
         "<Control-Key-3>",
         lambda _: (notebook.select(aba_csv), "break")[1],
+    )
+    janela.bind_all(
+        "<Control-Key-4>",
+        lambda _: (notebook.select(aba_perfis), "break")[1],
     )
 
     catalogo = []
@@ -264,10 +351,10 @@ def criar_janela():
             pass
 
     base = ttk.Frame(aba_pedido)
-    base.grid(row=0, column=0, sticky="nsew")
+    base.grid(row=1, column=0, sticky="nsew")
     base.columnconfigure(0, weight=1)
     aba_pedido.columnconfigure(0, weight=1)
-    aba_pedido.rowconfigure(0, weight=1)
+    aba_pedido.rowconfigure(1, weight=1)
 
     pedido = Pedido()
 
@@ -661,26 +748,105 @@ def criar_janela():
         tree.pack(fill=tk.BOTH, expand=True)
 
     def abrir_csv():
-        caminho = Path("vendas.csv")
-
         tree_csv.delete(*tree_csv.get_children())
 
-        if not caminho.exists():
+        try:
+            linhas = ler_linhas_csv()
+        except FileNotFoundError:
             messagebox.showinfo(
                 "Relatorios",
                 "Nenhum arquivo vendas.csv foi gerado ainda"
             )
             return
-        
-        with open(caminho,newline="",encoding="utf-8") as arquivo:
-            leitor = csv.reader(arquivo,delimiter=";")
+        except (OSError, UnicodeError, csv.Error, ValueError) as erro:
+            messagebox.showerror(
+                "Erro ao carregar relatório",
+                f"Não foi possível ler vendas.csv: {erro}",
+            )
+            return
 
-            next(leitor,None) #pula o cabeçalho
+        for linha in linhas:
+            tree_csv.insert("", tk.END, values=linha)
 
-            for linha in leitor:
-                tree_csv.insert("",tk.END,values=linha)
-        
-        notebook.select(aba_csv)
+    def ler_linhas_csv():
+        with CAMINHO_VENDAS.open(newline="", encoding="utf-8") as arquivo:
+            leitor = csv.reader(arquivo, delimiter=";")
+            cabecalho = next(leitor, None)
+            if cabecalho != list(colunas_csv):
+                raise ValueError("Cabeçalho do arquivo vendas.csv inválido.")
+
+            linhas = []
+            for numero, linha in enumerate(leitor, start=2):
+                if len(linha) != len(colunas_csv):
+                    raise ValueError(
+                        f"Quantidade de colunas inválida na linha {numero}."
+                    )
+                linhas.append(linha)
+        return linhas
+
+    def exportar_relatorio():
+        try:
+            linhas = ler_linhas_csv()
+        except FileNotFoundError:
+            messagebox.showinfo(
+                "Relatorios",
+                "Nenhum arquivo vendas.csv foi gerado ainda"
+            )
+            return
+        except (OSError, UnicodeError, csv.Error, ValueError) as erro:
+            messagebox.showerror(
+                "Erro ao carregar relatório",
+                f"Não foi possível ler vendas.csv: {erro}",
+            )
+            return
+
+        destino = filedialog.asksaveasfilename(
+            title="Exportar relatório",
+            initialfile="relatorio_vendas.csv",
+            filetypes=(("Arquivo CSV", "*.csv"), ("Arquivo de texto", "*.txt")),
+            defaultextension=".csv",
+        )
+        if not destino:
+            return
+
+        caminho_destino = Path(destino)
+        extensao = caminho_destino.suffix.lower()
+        if extensao not in (".csv", ".txt"):
+            messagebox.showerror(
+                "Formato inválido",
+                "Escolha um nome de arquivo com extensão .csv ou .txt.",
+            )
+            return
+
+        delimitador = ";" if extensao == ".csv" else "\t"
+        try:
+            with caminho_destino.open("w", newline="", encoding="utf-8") as arquivo:
+                escritor = csv.writer(arquivo, delimiter=delimitador)
+                escritor.writerow(colunas_csv)
+                escritor.writerows(linhas)
+        except (OSError, csv.Error) as erro:
+            messagebox.showerror(
+                "Erro ao exportar relatório",
+                f"Não foi possível salvar o relatório: {erro}",
+            )
+            return
+
+        messagebox.showinfo(
+            "Relatório exportado",
+            f"Relatório salvo em:\n{caminho_destino}",
+        )
+
+    ttk.Button(
+        aba_csv,
+        text="Exportar relatório",
+        command=exportar_relatorio,
+    ).grid(row=0, column=0, sticky="e", pady=(0, 8))
+
+    def ao_mudar_aba(event):
+        if event.widget.select() == str(aba_csv):
+            abrir_csv()
+
+    notebook.bind("<<NotebookTabChanged>>", ao_mudar_aba)
 
     btn_carregar.configure(command=ao_carregar_catalogo)
     btn_salvar.configure(command=ao_salvar_catalogo)

@@ -3,17 +3,25 @@ class SessaoDemo:
     """Simulação local de identificação/perfil; não autentica usuários reais."""
 
     def __init__(self):
-        """TODO A13: implemente __init__ conforme o contrato e reutilize seu código anterior."""
-        raise NotImplementedError('Implemente e teste esta operação.')
+        self.nome = None
+        self.perfil = None
 
     def entrar(self, nome, perfil):
-        """TODO A13: implemente entrar conforme o contrato e reutilize seu código anterior."""
-        raise NotImplementedError('Implemente e teste esta operação.')
+        nome = nome.strip()
+        if not nome:
+            raise ValueError("Informe o nome da pessoa.")
+        if perfil not in ("Caixa", "Administracao"):
+            raise ValueError("Escolha o perfil Caixa ou Administração.")
+
+        self.nome = nome
+        self.perfil = perfil
 
     def pode_configurar(self):
-        """TODO A13: implemente pode_configurar conforme o contrato e reutilize seu código anterior."""
-        raise NotImplementedError('Implemente e teste esta operação.')
+        return self.perfil == "Administracao"
+
+    def pode_operar_vendas(self):
+        return self.perfil == "Caixa"
 
     def sair(self):
-        """TODO A13: implemente sair conforme o contrato e reutilize seu código anterior."""
-        raise NotImplementedError('Implemente e teste esta operação.')
+        self.nome = None
+        self.perfil = None
