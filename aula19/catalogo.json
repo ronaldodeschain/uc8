@@ -1,0 +1,22 @@
+[
+    {
+        "id": 1,
+        "nome": "Arroz",
+        "preco_centavos": 2590
+    },
+    {
+        "id": 2,
+        "nome": "Feijao",
+        "preco_centavos": 890
+    },
+    {
+        "id": 3,
+        "nome": "Macarrao",
+        "preco_centavos": 650
+    },
+    {
+        "id": 4,
+        "nome": "Macarrazão",
+        "preco_centavos": 950
+    }
+]
