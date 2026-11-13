@@ -224,7 +224,7 @@ def criar_janela():
         janela.destroy()
         return None
 
-    janela.title("Pizzaria — A12")
+    janela.title("Mercado — A16")
     janela.geometry("680x720")
     janela.minsize(540, 580)
     janela.columnconfigure(0, weight=1)

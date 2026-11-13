@@ -12,49 +12,49 @@ Desenho dos módulos, dependências e duração dos dados:
 Para cada caso, registre previsão, observado, correção e nova execução.
 
 T01 — Tabela criada sem apagar linhas existentes.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: A tabela tem tratamento que evita que apague o que já existe. Caso não exista dados no banco ele copia o catalogo.json para popular inicialmente
+Observado: segue a previsão
+Correção/reteste ou pendência: Tudo de acordo com o esperado
 
 T02 — Preço 7,50 gravado como 750 inteiro.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: tem tratamento para gravar corretamente
+Observado: segue de acordo com a logica do sistema
+Correção/reteste ou pendência: sem ajuste
 
 T03 — Nome com apóstrofo tratado como parâmetro literal.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, gravado em string sem problemas
+Observado: já testado e funcionando como previsto
+Correção/reteste ou pendência: tudo ok
 
 T04 — Nome vazio/preço inválido não insere registro.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Não insere e notifica o problema relativo a falha
+Observado: A mensagem aparece corretamente
+Correção/reteste ou pendência: sem ajustes
 
 T05 — IDs positivos únicos, independentes da posição visual.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, tem tratamento para evitar ID duplicado
+Observado: mensagem aparece conforme previsto
+Correção/reteste ou pendência: tudo de acordo com o plano
 
 T06 — Reabrir o mesmo arquivo conserva produtos.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: sim, eles persistem então conserva sem problemas
+Observado: segue conforme previsto
+Correção/reteste ou pendência: sem ajustes nessa etapa
 
 T07 — Falha de conexão/gravação não deve aparecer como sucesso.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, se falhou tem tratamento para evitar que seja gravado 
+Observado: os tratamentos para erros funcionam conforme esperado
+Correção/reteste ou pendência: sem ajustes
 
 T08 — Conexões fechadas; importar não cria banco.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, conn.close() garante que não sejam feitas operações posteriores no banco
+Observado: a lógica faz a sua parte e protege a conexão 
+Correção/reteste ou pendência: sem ajustes, a lógica por hora está ok
 
 T09 — Pedido em memória continua separado dos produtos persistidos.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Quando o pedido é salvo ele persiste no arquivo csv. Sem a confirmação ele segue em memória apenas.
+Observado: tudo liso, conforme previsto e tratado
+Correção/reteste ou pendência: sem ajustes, fiquei em duvida se deveria manter ele salvo temporariamente em memoria esperando ser adicionado com um segundo botão, mas acho que salvar apos exibir a prévia faz mais sentido
 
 ## Explicação individual
 Uma decisão que consigo justificar:

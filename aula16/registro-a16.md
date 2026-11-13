@@ -12,49 +12,49 @@ Desenho dos módulos, dependências e duração dos dados:
 Para cada caso, registre previsão, observado, correção e nova execução.
 
 T01 — Controller executa sem importar Tkinter.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: sim, conforme executado em testes 
+Observado: sim, controller pode ser usando sem GUI
+Correção/reteste ou pendência: testes confirmam
 
 T02 — Mesmo contrato com memória/SQLite inclui, lista e edita por ID.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: contrato igual, adaptado para sqlite
+Observado: contrato segue inalterado
+Correção/reteste ou pendência: sem ajustes
 
 T03 — Memória começa vazia numa nova instância; SQLite reabre com dados.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, memoria nao tem dados inicialmente carregados, apenas no caso de catalogo que já há uma inserção para alimentar o sqlite caso não hajam dados
+Observado: conforme observado, campos ficam vazios ao iniciar o app
+Correção/reteste ou pendência: sem ajustes
 
 T04 — Editar/excluir clientes mantém alvo por ID.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, alterações são feitas por ID, tratamento garante isso
+Observado: ocorre conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T05 — Cancelar exclusão de cliente não altera banco nem lista.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, cancelar a exclusão não altera nada no banco. Apenas apos selecionar e clicar em botão relativo é que faz alteração
+Observado: conforme previsto
+Correção/reteste ou pendência: testes ok
 
 T06 — Tipo de cadastro desconhecido é rejeitado.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, os tratamentos protegem
+Observado: As verificações e a lógica do sistema impede que seja feito cadastro inválido
+Correção/reteste ou pendência: sem ajuste
 
 T07 — Falha do repositório é comunicada e conserva formulário.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, cada chamada no sistema tem suas validações, apenas apos tudo ser ok é feito o registro
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajustes
 
 T08 — Cópia retornada pela memória não permite alterar o armazenamento por fora.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, só vai alterar o que for persistido usando as chamadas pertinentes no sistema
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajuste
 
 T09 — Componentes mantêm campos/seleções independentes.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, o get busca os campos de modo independente, não deveria ter problemas de seleção
+Observado: ocorre como esperado
+Correção/reteste ou pendência: sem ajustes
 
 ## Explicação individual
 Uma decisão que consigo justificar:
