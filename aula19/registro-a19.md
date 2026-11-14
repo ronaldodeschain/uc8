@@ -37,24 +37,24 @@ Observado: conforme descrito no roteiro, é feito um backup e pode ser nomeado d
 Correção/reteste ou pendência: teste seguindo o roteiro executa conforme previsto
 
 T06 — Origem ausente não cria silenciosamente banco vazio.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Não, o catalago.json repopula o banco caso ele não exista
+Observado: conforme previsto, só os clientes que não são criados automaticamente, mas os dados podem salvos sem informar o cliente
+Correção/reteste ou pendência: Sem ajuste para esse teste
 
 T07 — Cópia abre e contém registros conhecidos; integridade conferida.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: copia deve abrir sem erros, verificando o backup via sqlite3 viewer deve exibir os dados
+Observado: funcionando como previsto, dados conferidos de copia.
+Correção/reteste ou pendência: Sem ajustes
 
 T08 — Entrega exclui ambientes/caches/dados reais e documenta limites.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Ambiente temporario/cache são fechados junto com o app, dados são persistidos
+Observado: não há dados reais e nem ambientes montados, projeto roda sem dependencias adicionais
+Correção/reteste ou pendência: sem ajustes
 
 T09 — Feedback indica evidência por indicador e teste de recuperação.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: feedbacks visuais apontam a evidência logica envolvida na operação e os testes cobrem as operações de sistema
+Observado: conforme previsto
+Correção/reteste ou pendência: sem ajustes
 
 ## Explicação individual
 Uma decisão que consigo justificar:
