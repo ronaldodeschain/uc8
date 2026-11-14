@@ -5,7 +5,7 @@
 No PowerShell, executar o app a partir da pasta `aula19`:
 
 ```powershell
-Set-Location C:\Users\Pichau\Documents\senac\uc8\aula19
+Set-Location \uc8\aula19
 python .\main.py
 ```
 

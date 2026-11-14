@@ -12,29 +12,29 @@ Desenho dos módulos, dependências e duração dos dados:
 Para cada caso, registre previsão, observado, correção e nova execução.
 
 T01 — Minha demonstração apresenta uma execução e uma explicação próprias.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, toda documentada em roteiro-demo
+Observado: conforme previsto
+Correção/reteste ou pendência: tudo funcionando, ok
 
 T02 — Demo inclui fluxo válido, falha/cancelamento e persistência/relatório.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: Sim, tudo aparece no fluxo
+Observado: segue conforme previsão
+Correção/reteste ou pendência: sem ajuste
 
 T03 — Pergunta técnica tem explicação individual, além da tela pronta.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: a interface tem msgs a cada parte do processo
+Observado:  Conforme previsto, documentação tem explicação simples individual
+Correção/reteste ou pendência: sem ajustes
 
 T04 — Mapa da academia distingue entidade, responsabilidade e armazenamento observado.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: A lógica funciona, mas não está formatada para reproduzir uma academia. As logicas de Crud funcionam bem
+Observado: Segue conforme previsão, não é academia, parece haver informações cruzadas
+Correção/reteste ou pendência: sem ajustes, poderia modificar para atender uma academia, mas teriam modificações em cascata provavelmente
 
 T05 — Backup usa destino novo e não sobrescreve cópia anterior.
-Previsão:
-Observado:
-Correção/reteste ou pendência:
+Previsão: backup cria arquivo e tem como salvar copia nova com nome diferente
+Observado: conforme descrito no roteiro, é feito um backup e pode ser nomeado de modo d
+Correção/reteste ou pendência: teste seguindo o roteiro executa conforme previsto
 
 T06 — Origem ausente não cria silenciosamente banco vazio.
 Previsão:
