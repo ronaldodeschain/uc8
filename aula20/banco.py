@@ -11,7 +11,9 @@ CAMINHO_CATALOGO = Path(__file__).with_name("catalogo.json")
 
 
 def _conectar(caminho):
-    return sqlite3.connect(caminho)
+    conexao = sqlite3.connect(caminho)
+    conexao.execute("PRAGMA foreign_keys = ON")
+    return conexao
 
 
 def _validar_codigo(codigo):
@@ -89,10 +91,85 @@ def _importar_catalogo_json(conexao, caminho_catalogo):
     return len(linhas)
 
 
+def _garantir_fk_cliente_vendas(conexao):
+    chaves_estrangeiras = conexao.execute(
+        "PRAGMA foreign_key_list(vendas)"
+    ).fetchall()
+    if any(
+        chave[2:5] == ("clientes", "cliente_id", "id")
+        and chave[6] == "RESTRICT"
+        for chave in chaves_estrangeiras
+    ):
+        return
+
+    conexao.execute(
+        """
+        CREATE TABLE vendas_com_fk (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data_hora TEXT NOT NULL,
+            forma_pagamento TEXT NOT NULL,
+            total_centavos INTEGER NOT NULL,
+            cliente_id INTEGER,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+                ON DELETE RESTRICT
+        )
+        """
+    )
+    conexao.execute(
+        """
+        INSERT INTO vendas_com_fk (
+            id, data_hora, forma_pagamento, total_centavos, cliente_id
+        )
+        SELECT id, data_hora, forma_pagamento, total_centavos, cliente_id
+        FROM vendas
+        """
+    )
+    conexao.execute("DROP TABLE vendas")
+    conexao.execute("ALTER TABLE vendas_com_fk RENAME TO vendas")
+
+
+def _garantir_fk_produto_itens(conexao):
+    chaves_estrangeiras = conexao.execute(
+        "PRAGMA foreign_key_list(itens_venda)"
+    ).fetchall()
+    if any(
+        chave[2:5] == ("produtos", "produto_codigo", "codigo")
+        and chave[6] == "RESTRICT"
+        for chave in chaves_estrangeiras
+    ):
+        return
+
+    conexao.execute(
+        """
+        CREATE TABLE itens_venda_com_fk (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            produto_codigo TEXT NOT NULL,
+            quantidade INTEGER NOT NULL,
+            preco_centavos INTEGER NOT NULL,
+            FOREIGN KEY (produto_codigo) REFERENCES produtos(codigo)
+                ON DELETE RESTRICT
+        )
+        """
+    )
+    conexao.execute(
+        """
+        INSERT INTO itens_venda_com_fk (
+            id, venda_id, produto_codigo, quantidade, preco_centavos
+        )
+        SELECT id, venda_id, produto_codigo, quantidade, preco_centavos
+        FROM itens_venda
+        """
+    )
+    conexao.execute("DROP TABLE itens_venda")
+    conexao.execute("ALTER TABLE itens_venda_com_fk RENAME TO itens_venda")
+
+
 def criar_banco(caminho=CAMINHO_BANCO, caminho_catalogo=CAMINHO_CATALOGO):
     """Cria as tabelas e importa produtos se ainda não houver registros."""
     with closing(_conectar(caminho)) as conexao:
         with conexao:
+            conexao.execute("BEGIN")
             conexao.execute(
                 """
                 CREATE TABLE IF NOT EXISTS produtos (
@@ -118,10 +195,13 @@ def criar_banco(caminho=CAMINHO_BANCO, caminho_catalogo=CAMINHO_CATALOGO):
                     data_hora TEXT NOT NULL,
                     forma_pagamento TEXT NOT NULL,
                     total_centavos INTEGER NOT NULL,
-                    cliente_id INTEGER
+                    cliente_id INTEGER,
+                    FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+                        ON DELETE RESTRICT
                 )
                 """
             )
+            _garantir_fk_cliente_vendas(conexao)
             conexao.execute(
                 """
                 CREATE TABLE IF NOT EXISTS itens_venda (
@@ -129,10 +209,13 @@ def criar_banco(caminho=CAMINHO_BANCO, caminho_catalogo=CAMINHO_CATALOGO):
                     venda_id INTEGER NOT NULL,
                     produto_codigo TEXT NOT NULL,
                     quantidade INTEGER NOT NULL,
-                    preco_centavos INTEGER NOT NULL
+                    preco_centavos INTEGER NOT NULL,
+                    FOREIGN KEY (produto_codigo) REFERENCES produtos(codigo)
+                        ON DELETE RESTRICT
                 )
                 """
             )
+            _garantir_fk_produto_itens(conexao)
             total = conexao.execute(
                 "SELECT COUNT(*) FROM produtos"
             ).fetchone()[0]
@@ -229,20 +312,34 @@ def registrar_pedido(
                             f"Revise o produto {codigo} antes de tentar novamente."
                         )
 
-            cursor = conexao.execute(
-                """
-                INSERT INTO vendas (
-                    data_hora, forma_pagamento, total_centavos, cliente_id
+            try:
+                cursor = conexao.execute(
+                    """
+                    INSERT INTO vendas (
+                        data_hora, forma_pagamento, total_centavos, cliente_id
+                    )
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        data_hora.strip(),
+                        forma_pagamento.strip(),
+                        total_centavos,
+                        cliente_id,
+                    ),
                 )
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    data_hora.strip(),
-                    forma_pagamento.strip(),
-                    total_centavos,
-                    cliente_id,
-                ),
-            )
+            except sqlite3.IntegrityError as erro:
+                if (
+                    cliente_id is not None
+                    and conexao.execute(
+                        "SELECT 1 FROM clientes WHERE id = ?",
+                        (cliente_id,),
+                    ).fetchone()
+                    is None
+                ):
+                    raise sqlite3.IntegrityError(
+                        "O cliente informado não existe."
+                    ) from erro
+                raise
             venda_id = cursor.lastrowid
             _inserir_itens_venda(conexao, venda_id, linhas_itens)
             return venda_id
@@ -310,8 +407,13 @@ def atualizar_produto(codigo, nome, preco_centavos, caminho=CAMINHO_BANCO):
 def remover_produto(codigo, caminho=CAMINHO_BANCO):
     """Remove o produto pelo código; retorna False quando não existe."""
     with closing(_conectar(caminho)) as conexao:
-        with conexao:
-            return _remover_produto(conexao, codigo)
+        try:
+            with conexao:
+                return _remover_produto(conexao, codigo)
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(
+                "Produto possui itens de venda vinculados."
+            ) from erro
 
 
 def sincronizar_produtos(produtos, caminho=CAMINHO_BANCO):
@@ -327,25 +429,30 @@ def sincronizar_produtos(produtos, caminho=CAMINHO_BANCO):
 
     resultado = {"inseridos": 0, "atualizados": 0, "removidos": 0}
     with closing(_conectar(caminho)) as conexao:
-        with conexao:
-            atuais = {
-                codigo: (nome, preco)
-                for codigo, nome, preco in conexao.execute(
-                    "SELECT codigo, nome, preco_centavos FROM produtos"
-                )
-            }
+        try:
+            with conexao:
+                atuais = {
+                    codigo: (nome, preco)
+                    for codigo, nome, preco in conexao.execute(
+                        "SELECT codigo, nome, preco_centavos FROM produtos"
+                    )
+                }
 
-            for codigo, (nome, preco) in desejados.items():
-                if codigo not in atuais:
-                    _salvar_produto(conexao, codigo, nome, preco)
-                    resultado["inseridos"] += 1
-                elif atuais[codigo] != (nome, preco):
-                    _atualizar_produto(conexao, codigo, nome, preco)
-                    resultado["atualizados"] += 1
+                for codigo, (nome, preco) in desejados.items():
+                    if codigo not in atuais:
+                        _salvar_produto(conexao, codigo, nome, preco)
+                        resultado["inseridos"] += 1
+                    elif atuais[codigo] != (nome, preco):
+                        _atualizar_produto(conexao, codigo, nome, preco)
+                        resultado["atualizados"] += 1
 
-            for codigo in atuais.keys() - desejados.keys():
-                _remover_produto(conexao, codigo)
-                resultado["removidos"] += 1
+                for codigo in atuais.keys() - desejados.keys():
+                    _remover_produto(conexao, codigo)
+                    resultado["removidos"] += 1
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(
+                "Produto possui itens de venda vinculados."
+            ) from erro
 
     return resultado
 
@@ -412,9 +519,14 @@ def remover_cliente(cliente_id, caminho=CAMINHO_BANCO):
     """Remove cliente pelo ID; retorna False se não existir."""
     cliente_id = _validar_id_cliente(cliente_id)
     with closing(_conectar(caminho)) as conexao:
-        with conexao:
-            cursor = conexao.execute(
-                "DELETE FROM clientes WHERE id = ?",
-                (cliente_id,),
-            )
-            return cursor.rowcount > 0
+        try:
+            with conexao:
+                cursor = conexao.execute(
+                    "DELETE FROM clientes WHERE id = ?",
+                    (cliente_id,),
+                )
+                return cursor.rowcount > 0
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(
+                "Cliente possui vendas vinculadas."
+            ) from erro

@@ -147,6 +147,15 @@ def abrir_previa(janela, pedido, forma, aviso, tree, lbl_total, combo_produto):
             top.destroy()
             aviso.configure(text=f"Recusado: {e}")
             return
+        except sqlite3.IntegrityError as e:
+            top.destroy()
+            if str(e) == "O cliente informado não existe.":
+                aviso.configure(text=str(e))
+            else:
+                aviso.configure(
+                    text=f"Não foi possível registrar a venda no SQLite: {e}"
+                )
+            return
         except sqlite3.Error as e:
             top.destroy()
             aviso.configure(text=f"Não foi possível registrar a venda no SQLite: {e}")

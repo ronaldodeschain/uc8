@@ -1,12 +1,14 @@
 """Testes sem interface para CSV e sessões de perfil."""
 import csv
 import sqlite3
-from contextlib import closing
+from contextlib import closing, redirect_stdout
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from banco import (
+    _conectar,
     atualizar_produto,
     atualizar_cliente,
     criar_banco,
@@ -19,6 +21,7 @@ from banco import (
     salvar_cliente,
     salvar_itens_venda,
     salvar_produto,
+    sincronizar_produtos,
 )
 from modelos import Comprovante, Pedido, Produto
 from perfis import SessaoDemo
@@ -26,12 +29,19 @@ from memoria import ProdutosMemoria
 from controller import ProdutoController
 from repositorio import ProdutosSQLite
 from relatorios import exportar_csv, registrar_venda_csv
+from relacoes_sqlite import demonstrar as demonstrar_relacoes_sqlite
 from main import (
     _registrar_pedido_no_banco,
     _remover_produto_se_confirmado,
 )
 from pagamento import calcular_pagamento, preco_para_centavos
 from backup_sqlite import criar_backup
+from vinculos import (
+    clientes as clientes_vinculo,
+    pode_excluir_aluno,
+    validar_vinculos,
+    vinculo_valido,
+)
 
 
 def produto_existe(codigo, caminho):
@@ -123,6 +133,60 @@ def verificar_persistencia_sqlite():
         assert listar_produtos(caminho_banco) == []
 
 
+def verificar_chaves_estrangeiras():
+    with TemporaryDirectory() as diretorio:
+        caminho_banco = Path(diretorio) / "vinculos.db"
+        with closing(_conectar(caminho_banco)) as conexao:
+            assert conexao.execute("PRAGMA foreign_keys").fetchone() == (1,)
+            conexao.execute(
+                "CREATE TABLE alunos (id INTEGER PRIMARY KEY)"
+            )
+            conexao.execute(
+                """
+                CREATE TABLE matriculas (
+                    id INTEGER PRIMARY KEY,
+                    aluno_id INTEGER NOT NULL,
+                    FOREIGN KEY (aluno_id) REFERENCES alunos(id)
+                        ON DELETE RESTRICT
+                )
+                """
+            )
+            with conexao:
+                conexao.execute("INSERT INTO alunos (id) VALUES (1)")
+                conexao.execute(
+                    "INSERT INTO matriculas (id, aluno_id) VALUES (1, 1)"
+                )
+
+            try:
+                with conexao:
+                    conexao.execute(
+                        "INSERT INTO matriculas (id, aluno_id) VALUES (2, 99)"
+                    )
+            except sqlite3.IntegrityError:
+                pass
+            else:
+                raise AssertionError(
+                    "Uma matrícula com referência inexistente deveria ser recusada."
+                )
+
+            try:
+                with conexao:
+                    conexao.execute("DELETE FROM alunos WHERE id = 1")
+            except sqlite3.IntegrityError:
+                pass
+            else:
+                raise AssertionError(
+                    "A exclusão de aluno vinculado deveria ser bloqueada."
+                )
+
+            assert conexao.execute(
+                "SELECT id FROM alunos"
+            ).fetchall() == [(1,)]
+            assert conexao.execute(
+                "SELECT aluno_id FROM matriculas"
+            ).fetchall() == [(1,)]
+
+
 def verificar_backup_sqlite():
     with TemporaryDirectory() as diretorio:
         caminho_origem = Path(diretorio) / "pizzaria.db"
@@ -199,11 +263,404 @@ def verificar_crud_clientes():
                 raise AssertionError("Nome vazio de cliente deveria ser rejeitado.")
 
 
+def verificar_cliente_inexistente():
+    with TemporaryDirectory() as diretorio:
+        caminho_banco = Path(diretorio) / "clientes_legado.db"
+        with closing(sqlite3.connect(caminho_banco)) as conexao:
+            with conexao:
+                conexao.execute(
+                    """
+                    CREATE TABLE clientes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome TEXT NOT NULL,
+                        telefone TEXT
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE vendas (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        data_hora TEXT NOT NULL,
+                        forma_pagamento TEXT NOT NULL,
+                        total_centavos INTEGER NOT NULL,
+                        cliente_id INTEGER
+                    )
+                    """
+                )
+                conexao.execute(
+                    "INSERT INTO clientes (id, nome) VALUES (1, 'Cliente válido')"
+                )
+                conexao.execute(
+                    """
+                    INSERT INTO vendas (
+                        id, data_hora, forma_pagamento, total_centavos, cliente_id
+                    )
+                    VALUES (1, '2026-11-18 10:00:00', 'PIX', 1000, 1)
+                    """
+                )
+
+        criar_banco(
+            caminho_banco,
+            Path(diretorio) / "catalogo_inexistente.json",
+        )
+        with closing(_conectar(caminho_banco)) as conexao:
+            assert conexao.execute(
+                "PRAGMA foreign_key_list(vendas)"
+            ).fetchall()[0][6] == "RESTRICT"
+            assert conexao.execute(
+                "SELECT id, cliente_id FROM vendas"
+            ).fetchall() == [(1, 1)]
+        assert atualizar_cliente(
+            1,
+            "João Silva",
+            caminho=caminho_banco,
+        ) is True
+        with closing(_conectar(caminho_banco)) as conexao:
+            assert conexao.execute(
+                """
+                SELECT vendas.cliente_id, clientes.nome
+                FROM vendas JOIN clientes ON clientes.id = vendas.cliente_id
+                """
+            ).fetchall() == [(1, "João Silva")]
+            assert conexao.execute("PRAGMA foreign_key_check").fetchall() == []
+
+        erro_ocorreu = False
+        try:
+            remover_cliente(1, caminho_banco)
+        except ValueError as erro:
+            assert str(erro) == "Cliente possui vendas vinculadas."
+            erro_ocorreu = True
+        else:
+            raise AssertionError("Cliente vinculado deveria ter exclusão recusada.")
+        assert erro_ocorreu is True
+        assert listar_clientes(caminho_banco) == [
+            (1, "João Silva", None)
+        ]
+
+        try:
+            registrar_pedido(
+                "2026-11-18 10:01:00",
+                "PIX",
+                1000,
+                cliente_id=999,
+                caminho=caminho_banco,
+            )
+        except sqlite3.IntegrityError as erro:
+            assert str(erro) == "O cliente informado não existe."
+        else:
+            raise AssertionError("Venda com cliente inexistente deveria ser recusada.")
+
+        assert listar_vendas(caminho_banco) == [
+            (1, "2026-11-18 10:00:00", "PIX", 1000, 1)
+        ]
+
+
+def verificar_migracao_orfa_preservada():
+    with TemporaryDirectory() as diretorio:
+        caminho_banco = Path(diretorio) / "vendas_orfas.db"
+        with closing(sqlite3.connect(caminho_banco)) as conexao:
+            with conexao:
+                conexao.execute(
+                    """
+                    CREATE TABLE clientes (
+                        id INTEGER PRIMARY KEY,
+                        nome TEXT NOT NULL,
+                        telefone TEXT
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE vendas (
+                        id INTEGER PRIMARY KEY,
+                        data_hora TEXT NOT NULL,
+                        forma_pagamento TEXT NOT NULL,
+                        total_centavos INTEGER NOT NULL,
+                        cliente_id INTEGER
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    INSERT INTO vendas
+                    VALUES (1, '2026-11-18 10:00:00', 'PIX', 1000, 999)
+                    """
+                )
+
+        try:
+            criar_banco(
+                caminho_banco,
+                Path(diretorio) / "catalogo_inexistente.json",
+            )
+        except sqlite3.IntegrityError:
+            pass
+        else:
+            raise AssertionError("A migração deveria recusar venda órfã existente.")
+
+        with closing(sqlite3.connect(caminho_banco)) as conexao:
+            tabelas = {
+                linha[0]
+                for linha in conexao.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            assert "vendas_com_fk" not in tabelas
+            assert conexao.execute(
+                "SELECT id, cliente_id FROM vendas"
+            ).fetchall() == [(1, 999)]
+            assert conexao.execute(
+                "PRAGMA foreign_key_list(vendas)"
+            ).fetchall() == []
+
+
+def verificar_produto_inexistente():
+    with TemporaryDirectory() as diretorio:
+        caminho_banco = Path(diretorio) / "itens_legado.db"
+        with closing(sqlite3.connect(caminho_banco)) as conexao:
+            with conexao:
+                conexao.execute(
+                    """
+                    CREATE TABLE produtos (
+                        codigo TEXT PRIMARY KEY,
+                        nome TEXT NOT NULL,
+                        preco_centavos INTEGER NOT NULL
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE clientes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome TEXT NOT NULL,
+                        telefone TEXT
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE vendas (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        data_hora TEXT NOT NULL,
+                        forma_pagamento TEXT NOT NULL,
+                        total_centavos INTEGER NOT NULL,
+                        cliente_id INTEGER
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE itens_venda (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        venda_id INTEGER NOT NULL,
+                        produto_codigo TEXT NOT NULL,
+                        quantidade INTEGER NOT NULL,
+                        preco_centavos INTEGER NOT NULL
+                    )
+                    """
+                )
+                conexao.execute(
+                    "INSERT INTO produtos VALUES ('P01', 'Produto válido', 100)"
+                )
+                conexao.execute(
+                    """
+                    INSERT INTO vendas (
+                        id, data_hora, forma_pagamento, total_centavos
+                    )
+                    VALUES (1, '2026-11-18 10:00:00', 'PIX', 100)
+                    """
+                )
+                conexao.execute(
+                    """
+                    INSERT INTO itens_venda (
+                        id, venda_id, produto_codigo, quantidade, preco_centavos
+                    )
+                    VALUES (1, 1, 'P01', 1, 100)
+                    """
+                )
+
+        criar_banco(
+            caminho_banco,
+            Path(diretorio) / "catalogo_inexistente.json",
+        )
+        with closing(_conectar(caminho_banco)) as conexao:
+            chave_estrangeira = conexao.execute(
+                "PRAGMA foreign_key_list(itens_venda)"
+            ).fetchall()[0]
+            assert chave_estrangeira[2:5] == (
+                "produtos",
+                "produto_codigo",
+                "codigo",
+            )
+            assert chave_estrangeira[6] == "RESTRICT"
+            assert conexao.execute(
+                "SELECT id, venda_id, produto_codigo FROM itens_venda"
+            ).fetchall() == [(1, 1, "P01")]
+        assert atualizar_produto(
+            "P01",
+            "Produto renomeado",
+            100,
+            caminho_banco,
+        ) is True
+        with closing(_conectar(caminho_banco)) as conexao:
+            assert conexao.execute(
+                """
+                SELECT itens_venda.produto_codigo, produtos.nome
+                FROM itens_venda
+                JOIN produtos ON produtos.codigo = itens_venda.produto_codigo
+                """
+            ).fetchall() == [("P01", "Produto renomeado")]
+            assert conexao.execute("PRAGMA foreign_key_check").fetchall() == []
+
+        for remover in (
+            lambda: remover_produto("P01", caminho_banco),
+            lambda: sincronizar_produtos(
+                [{"id": "P02", "nome": "Produto substituto", "preco_centavos": 100}],
+                caminho_banco,
+            ),
+        ):
+            erro_ocorreu = False
+            try:
+                remover()
+            except ValueError as erro:
+                assert str(erro) == "Produto possui itens de venda vinculados."
+                erro_ocorreu = True
+            else:
+                raise AssertionError("Produto vinculado deveria ter exclusão recusada.")
+            assert erro_ocorreu is True
+
+        assert listar_produtos(caminho_banco) == [
+            ("P01", "Produto renomeado", 100)
+        ]
+
+        try:
+            salvar_itens_venda(1, [("P999", 1, 100)], caminho_banco)
+        except sqlite3.IntegrityError:
+            pass
+        else:
+            raise AssertionError("Item com produto inexistente deveria ser recusado.")
+
+        try:
+            registrar_pedido(
+                "2026-11-18 10:01:00",
+                "PIX",
+                100,
+                itens=[("P999", 1, 100)],
+                caminho=caminho_banco,
+            )
+        except sqlite3.IntegrityError:
+            pass
+        else:
+            raise AssertionError(
+                "Venda com produto inexistente deveria ser recusada."
+            )
+
+        assert listar_vendas(caminho_banco) == [
+            (1, "2026-11-18 10:00:00", "PIX", 100, None)
+        ]
+        with closing(_conectar(caminho_banco)) as conexao:
+            assert conexao.execute(
+                "SELECT id, produto_codigo FROM itens_venda"
+            ).fetchall() == [(1, "P01")]
+
+
+def verificar_migracao_item_orfa_preservada():
+    with TemporaryDirectory() as diretorio:
+        caminho_banco = Path(diretorio) / "produto_orfao.db"
+        with closing(sqlite3.connect(caminho_banco)) as conexao:
+            with conexao:
+                conexao.execute(
+                    """
+                    CREATE TABLE produtos (
+                        codigo TEXT PRIMARY KEY,
+                        nome TEXT NOT NULL,
+                        preco_centavos INTEGER NOT NULL
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE clientes (
+                        id INTEGER PRIMARY KEY,
+                        nome TEXT NOT NULL,
+                        telefone TEXT
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE vendas (
+                        id INTEGER PRIMARY KEY,
+                        data_hora TEXT NOT NULL,
+                        forma_pagamento TEXT NOT NULL,
+                        total_centavos INTEGER NOT NULL,
+                        cliente_id INTEGER
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    CREATE TABLE itens_venda (
+                        id INTEGER PRIMARY KEY,
+                        venda_id INTEGER NOT NULL,
+                        produto_codigo TEXT NOT NULL,
+                        quantidade INTEGER NOT NULL,
+                        preco_centavos INTEGER NOT NULL
+                    )
+                    """
+                )
+                conexao.execute(
+                    """
+                    INSERT INTO vendas
+                    VALUES (1, '2026-11-18 10:00:00', 'PIX', 100, NULL)
+                    """
+                )
+                conexao.execute(
+                    """
+                    INSERT INTO itens_venda
+                    VALUES (1, 1, 'P999', 1, 100)
+                    """
+                )
+
+        try:
+            criar_banco(
+                caminho_banco,
+                Path(diretorio) / "catalogo_inexistente.json",
+            )
+        except sqlite3.IntegrityError:
+            pass
+        else:
+            raise AssertionError("A migração deveria recusar item sem produto.")
+
+        with closing(sqlite3.connect(caminho_banco)) as conexao:
+            tabelas = {
+                linha[0]
+                for linha in conexao.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            assert "itens_venda_com_fk" not in tabelas
+            assert conexao.execute(
+                "SELECT id, produto_codigo FROM itens_venda"
+            ).fetchall() == [(1, "P999")]
+            assert conexao.execute(
+                "PRAGMA foreign_key_list(itens_venda)"
+            ).fetchall() == []
+
+
 def verificar_persistencia_vendas():
     with TemporaryDirectory() as diretorio:
         caminho_banco = Path(diretorio) / "teste_vendas.db"
         caminho_catalogo = Path(diretorio) / "catalogo_inexistente.json"
         criar_banco(caminho_banco, caminho_catalogo)
+        for codigo, nome, preco in (
+            ("P01", "Produto 1", 650),
+            ("P02", "Produto 2", 500),
+            ("P03", "Produto 3", 300),
+            ("P04", "Produto 4", 500),
+            ("ERRO", "Produto de teste", 500),
+        ):
+            salvar_produto(codigo, nome, preco, caminho_banco)
         cliente_id = salvar_cliente("Maria", caminho=caminho_banco)
 
         venda_id = registrar_pedido(
@@ -282,6 +739,7 @@ def verificar_venda_simples():
     with TemporaryDirectory() as diretorio:
         caminho_banco = Path(diretorio) / "venda_simples.db"
         criar_banco(caminho_banco, Path(diretorio) / "catalogo_inexistente.json")
+        salvar_produto("P01", "Produto 1", 1000, caminho_banco)
 
         venda_id = registrar_pedido(
             "2026-11-13 14:45:00",
@@ -299,6 +757,8 @@ def verificar_venda_com_itens():
     with TemporaryDirectory() as diretorio:
         caminho_banco = Path(diretorio) / "venda_com_itens.db"
         criar_banco(caminho_banco, Path(diretorio) / "catalogo_inexistente.json")
+        salvar_produto("P01", "Produto 1", 1000, caminho_banco)
+        salvar_produto("P02", "Produto 2", 400, caminho_banco)
 
         venda_id = registrar_pedido(
             "2026-11-13 14:45:00",
@@ -323,6 +783,7 @@ def verificar_rollback_sem_venda():
     with TemporaryDirectory() as diretorio:
         caminho_banco = Path(diretorio) / "rollback.db"
         criar_banco(caminho_banco, Path(diretorio) / "catalogo_inexistente.json")
+        salvar_produto("P01", "Produto 1", 1000, caminho_banco)
 
         with closing(sqlite3.connect(caminho_banco)) as conexao:
             conexao.execute(
@@ -503,6 +964,119 @@ def verificar_cliente_no_comprovante():
 
     pedido.novo()
     assert pedido.cliente is None
+
+
+def teste_vinculo_valido():
+    assert vinculo_valido({"cliente_id": 1}) is True
+
+
+def teste_vinculo_inexistente():
+    assert vinculo_valido({"cliente_id": 99}) is False
+
+
+def teste_nome_nao_quebra_vinculo():
+    nome_original = clientes_vinculo[1]
+    try:
+        clientes_vinculo[1] = "João Silva"
+        resultado = vinculo_valido({"cliente_id": 1})
+        assert resultado is True
+    finally:
+        clientes_vinculo[1] = nome_original
+
+
+def verificar_validar_vinculos():
+    alunos = {1: "Ana", 2: "Beto"}
+    planos = {10: "Plano A"}
+    matriculas = [{"aluno_id": 1, "plano_id": 10}]
+    estado_original = (
+        alunos.copy(),
+        planos.copy(),
+        [matricula.copy() for matricula in matriculas],
+    )
+
+    assert validar_vinculos(alunos, planos, matriculas)
+    assert not pode_excluir_aluno(1, matriculas)
+    assert pode_excluir_aluno(2, matriculas)
+
+    casos_invalidos = (
+        (
+            lambda: validar_vinculos({}, planos, matriculas),
+            "Aluno 1 não existe.",
+        ),
+        (
+            lambda: validar_vinculos(alunos, {}, matriculas),
+            "Plano 10 não existe.",
+        ),
+        (
+            lambda: validar_vinculos(
+                alunos,
+                planos,
+                matriculas * 2,
+            ),
+            "Matrícula duplicada para aluno 1 e plano 10.",
+        ),
+        (
+            lambda: validar_vinculos({True: "Ana"}, planos, []),
+            "ID de aluno deve ser um inteiro positivo.",
+        ),
+        (
+            lambda: validar_vinculos({-1: "Ana"}, planos, []),
+            "ID de aluno deve ser um inteiro positivo.",
+        ),
+        (
+            lambda: validar_vinculos(
+                alunos,
+                planos,
+                [{"aluno_id": True, "plano_id": 10}],
+            ),
+            "ID de aluno deve ser um inteiro positivo.",
+        ),
+        (
+            lambda: validar_vinculos(
+                alunos,
+                planos,
+                [{"aluno_id": 1, "plano_id": 0}],
+            ),
+            "ID de plano deve ser um inteiro positivo.",
+        ),
+    )
+    for validar, mensagem_esperada in casos_invalidos:
+        try:
+            validar()
+        except ValueError as erro:
+            assert str(erro) == mensagem_esperada
+        else:
+            raise AssertionError(
+                f"Vínculo inválido deveria ser recusado: {mensagem_esperada}"
+            )
+
+    try:
+        pode_excluir_aluno(True, matriculas)
+    except ValueError as erro:
+        assert str(erro) == "ID de aluno deve ser um inteiro positivo."
+    else:
+        raise AssertionError("ID booleano deveria ser recusado.")
+
+    assert (
+        alunos,
+        planos,
+        matriculas,
+    ) == estado_original
+
+
+def verificar_comparacao_memoria_sqlite():
+    saida = StringIO()
+    with redirect_stdout(saida):
+        demonstrar_relacoes_sqlite()
+
+    assert saida.getvalue().splitlines() == [
+        "Memória: venda com cliente válido aceita.",
+        "Memória: venda recusada: O cliente informado não existe.",
+        "Memória: exclusão recusada: Cliente possui vendas vinculadas.",
+        "SQLite: venda com cliente válido aceita.",
+        "SQLite: venda recusada: FOREIGN KEY constraint failed",
+        "SQLite: exclusão recusada: FOREIGN KEY constraint failed",
+    ]
 
 
 def verificar_repositorio_memoria():
@@ -774,6 +1348,14 @@ def main():
                     verificar_persistencia_sqlite,
                 ),
                 (
+                    "Chaves estrangeiras habilitadas e exclusão RESTRICT",
+                    verificar_chaves_estrangeiras,
+                ),
+                (
+                    "Recusa produto inexistente e migra itens antigos",
+                    verificar_produto_inexistente,
+                ),
+                (
                     "Contrato do repositório em memória",
                     verificar_repositorio_memoria,
                 ),
@@ -788,7 +1370,30 @@ def main():
             "Clientes",
             (
                 ("CRUD de clientes", verificar_crud_clientes),
+                ("Recusa cliente inexistente e migra vendas antigas",
+                 verificar_cliente_inexistente),
+                ("Rollback de migração com venda órfã",
+                 verificar_migracao_orfa_preservada),
+                ("Rollback de migração com item órfão",
+                 verificar_migracao_item_orfa_preservada),
                 ("Cliente no comprovante", verificar_cliente_no_comprovante),
+            ),
+        ),
+        (
+            "Vínculos",
+            (
+                ("Vínculo válido", teste_vinculo_valido),
+                ("Vínculo inexistente", teste_vinculo_inexistente),
+                ("Nome não quebra vínculo por ID", teste_nome_nao_quebra_vinculo),
+                ("Validação de matrícula e exclusão de aluno",
+                 verificar_validar_vinculos),
+            ),
+        ),
+        (
+            "Relações SQLite",
+            (
+                ("Comparação de vínculos entre memória e SQLite",
+                 verificar_comparacao_memoria_sqlite),
             ),
         ),
         (
