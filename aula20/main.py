@@ -121,7 +121,7 @@ def abrir_previa(janela, pedido, forma, aviso, tree, lbl_total, combo_produto):
     linha_csv = (
         f"11/11/2026;"
         f"{forma};"
-        f"{pedido.total_centavos()/100:.2f};"
+        f"{total_pag/100:.2f};"
         f"{len(pedido.itens)}"
     )
 
